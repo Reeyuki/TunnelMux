@@ -48,14 +48,20 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
     await websocket.accept()
     print(f"[Relay] Client connected: {client_id}, session: {session_id}")
 
-    while (client_id, session_id) not in sessions or sessions[(client_id, session_id)][
-        1
-    ] is None:
-        sessions[(client_id, session_id)] = (websocket, None)
+    while True:
+        old = sessions.get((client_id, session_id))
+        if old is None:
+            sessions[(client_id, session_id)] = (websocket, None)
+        else:
+            client_ws, ssh_ws = old
+            if ssh_ws is not None:
+                sessions[(client_id, session_id)] = (websocket, ssh_ws)
+                break
+            else:
+                sessions[(client_id, session_id)] = (websocket, None)
         await asyncio.sleep(0.1)
 
     ssh_ws = sessions[(client_id, session_id)][1]
-    sessions[(client_id, session_id)] = (websocket, ssh_ws)
 
     forward_client = asyncio.create_task(forward(websocket, ssh_ws))
     forward_ssh = asyncio.create_task(forward(ssh_ws, websocket))
@@ -79,14 +85,20 @@ async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
     await websocket.accept()
     print(f"[Relay] SSH connected: {client_id}, session: {session_id}")
 
-    while (client_id, session_id) not in sessions or sessions[(client_id, session_id)][
-        0
-    ] is None:
-        sessions[(client_id, session_id)] = (None, websocket)
+    while True:
+        old = sessions.get((client_id, session_id))
+        if old is None:
+            sessions[(client_id, session_id)] = (None, websocket)
+        else:
+            client_ws, ssh_ws = old
+            if client_ws is not None:
+                sessions[(client_id, session_id)] = (client_ws, websocket)
+                break
+            else:
+                sessions[(client_id, session_id)] = (None, websocket)
         await asyncio.sleep(0.1)
 
     client_ws = sessions[(client_id, session_id)][0]
-    sessions[(client_id, session_id)] = (client_ws, websocket)
 
     try:
         await asyncio.Future()
