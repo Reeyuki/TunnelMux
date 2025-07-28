@@ -4,4 +4,3 @@ websockets
 dotenv
 uvicorn
 gunicorn
-urllib
