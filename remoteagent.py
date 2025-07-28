@@ -3,7 +3,8 @@ from urllib.parse import urlparse
 import websockets
 import os
 from dotenv import load_dotenv
-
+import ssl
+import certifi
 
 load_dotenv()
 domain = os.getenv("DOMAIN")
@@ -50,7 +51,10 @@ async def run_session():
         scheme = "ws"
         netloc = domain
     VPS_URL = f"{scheme}://{netloc}/ws/client/{clientId}/{session_id}"
-    async with websockets.connect(VPS_URL) as ws:
+
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+
+    async with websockets.connect(VPS_URL, ssl=ssl_context) as ws:
         reader, writer = await asyncio.open_connection(LOCAL_SSH_HOST, LOCAL_SSH_PORT)
         print("[Client A] Connected to VPS and local SSH")
         await asyncio.gather(
