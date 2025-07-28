@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag to release (required for manual dispatch)'
+        description: 'Tag to release
         required: false
         type: string
 
@@ -65,11 +65,11 @@ jobs:
         run: |
           mkdir output
           if [ "${{ runner.os }}" = "Windows" ]; then
-            mv dist/main.exe output/main-windows.exe
+            mv dist/remoteagent.exe output/remoteagent-windows.exe
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            mv dist/main output/main-macos
+            mv dist/remoteagent output/remoteagent-macos
           else
-            mv dist/main output/main-linux
+            mv dist/remoteagent output/remoteagent-linux
           fi
         shell: bash
 
