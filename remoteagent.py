@@ -14,6 +14,29 @@ session_id = "default"
 LOCAL_SSH_HOST = "127.0.0.1"
 LOCAL_SSH_PORT = 22
 
+def build_ws_url(path):
+    parsed = urlparse(domain)
+    scheme = "wss" if parsed.scheme == "https" else "ws"
+    netloc = parsed.netloc if parsed.netloc else parsed.path
+    return f"{scheme}://{netloc}{path}"
+
+ssl_context = ssl.create_default_context(cafile=certifi.where())
+
+async def ssh_ws_loop():
+    url = build_ws_url(f"/ws/ssh/{clientId}/{session_id}")
+    async with websockets.connect(url, ssl=ssl_context) as ws:
+        print("[Client A] SSH WebSocket connected (waiting for relay connection)")
+        await asyncio.Future()
+
+async def client_session_loop():
+    url = build_ws_url(f"/ws/client/{clientId}/{session_id}")
+    async with websockets.connect(url, ssl=ssl_context) as ws:
+        reader, writer = await asyncio.open_connection(LOCAL_SSH_HOST, LOCAL_SSH_PORT)
+        print("[Client A] Connected to VPS and local SSH")
+        await asyncio.gather(
+            tcp_to_ws(reader, ws),
+            ws_to_tcp(writer, ws),
+        )
 
 async def tcp_to_ws(tcp_reader, ws):
     try:
@@ -26,7 +49,6 @@ async def tcp_to_ws(tcp_reader, ws):
             await ws.send(data)
     except Exception as e:
         print(f"[Client A] tcp_to_ws error: {e}")
-
 
 async def ws_to_tcp(tcp_writer, ws):
     try:
@@ -41,37 +63,16 @@ async def ws_to_tcp(tcp_writer, ws):
         tcp_writer.close()
         await tcp_writer.wait_closed()
 
-
-async def run_session():
-    parsed = urlparse(domain)
-    if parsed.scheme in ("http", "https"):
-        scheme = "wss" if parsed.scheme == "https" else "ws"
-        netloc = parsed.netloc
-    else:
-        scheme = "ws"
-        netloc = domain
-    VPS_URL = f"{scheme}://{netloc}/ws/client/{clientId}/{session_id}"
-
-    ssl_context = ssl.create_default_context(cafile=certifi.where())
-
-    async with websockets.connect(VPS_URL, ssl=ssl_context) as ws:
-        reader, writer = await asyncio.open_connection(LOCAL_SSH_HOST, LOCAL_SSH_PORT)
-        print("[Client A] Connected to VPS and local SSH")
-        await asyncio.gather(
-            tcp_to_ws(reader, ws),
-            ws_to_tcp(writer, ws),
-        )
-
-
 async def main_loop():
     while True:
         try:
-            await run_session()
+            ssh_task = asyncio.create_task(ssh_ws_loop())
+            client_task = asyncio.create_task(client_session_loop())
+            await asyncio.gather(ssh_task, client_task)
         except Exception as e:
             print(f"[Client A] Connection/session error: {e}")
         print("[Client A] Session ended, reconnecting ...")
         await asyncio.sleep(0.5)
-
 
 if __name__ == "__main__":
     asyncio.run(main_loop())
