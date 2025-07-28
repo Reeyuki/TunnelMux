@@ -63,7 +63,7 @@ jobs:
         run: |
           mkdir output
           if [ "${{ runner.os }}" = "Windows" ]; then
-            mv dist/remoteagent.exe output/remoteagent-windows.exe
+            mv dist/oconsole.exe output/remoteagent-windows.exe
           elif [ "${{ runner.os }}" = "macOS" ]; then
             mv dist/remoteagent output/remoteagent-macos
           else
