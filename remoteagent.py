@@ -1,7 +1,12 @@
 import asyncio
 import websockets
+import os
+from dotenv import load_dotenv
 
-domain = "localhost:8080"
+
+load_dotenv()
+domain = os.getenv("DOMAIN")
+
 clientId = "defaultclient"
 session_id = "default"
 LOCAL_SSH_HOST = "127.0.0.1"
