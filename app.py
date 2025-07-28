@@ -16,8 +16,9 @@ async def health():
 
 async def safe_ws_close(ws: WebSocket):
     try:
-        if ws.application_state != WebSocketState.DISCONNECTED:
+        if ws and ws.application_state != WebSocketState.DISCONNECTED:
             await ws.close()
+            print("[Relay] Closed websocket safely")
     except Exception as e:
         print(f"[Relay] Error closing websocket: {e}")
 
@@ -26,6 +27,7 @@ async def forward(src: WebSocket, dst: WebSocket):
     try:
         while True:
             data = await src.receive_bytes()
+            print(f"[Relay] Forwarding {len(data)} bytes")
             if dst.application_state != WebSocketState.CONNECTED:
                 print("[Relay] Destination WS not connected, exiting forward loop")
                 break
@@ -39,29 +41,39 @@ async def forward(src: WebSocket, dst: WebSocket):
                     break
                 else:
                     raise
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[Relay] Forward error: {e}")
 
 
 @app.websocket("/ws/client/{client_id}/{session_id}")
 async def websocket_client(websocket: WebSocket, client_id: str, session_id: str):
     await websocket.accept()
-    print(f"[Relay] Client connected: {client_id}, session: {session_id}")
+    print(f"[Relay] Client WS connected: {client_id}, session: {session_id}")
 
     while True:
         old = sessions.get((client_id, session_id))
         if old is None:
             sessions[(client_id, session_id)] = (websocket, None)
+            print(
+                f"[Relay] Session created for {(client_id, session_id)} with client WS only"
+            )
         else:
             client_ws, ssh_ws = old
             if ssh_ws is not None:
                 sessions[(client_id, session_id)] = (websocket, ssh_ws)
+                print(
+                    f"[Relay] SSH WS present, session ready: {(client_id, session_id)}"
+                )
                 break
             else:
                 sessions[(client_id, session_id)] = (websocket, None)
+                print(
+                    f"[Relay] Waiting for SSH WS for session {(client_id, session_id)}"
+                )
         await asyncio.sleep(0.1)
 
     ssh_ws = sessions[(client_id, session_id)][1]
+    print(f"[Relay] Starting forwarding tasks for session {(client_id, session_id)}")
 
     forward_client = asyncio.create_task(forward(websocket, ssh_ws))
     forward_ssh = asyncio.create_task(forward(ssh_ws, websocket))
@@ -71,6 +83,9 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
         return_when=asyncio.FIRST_COMPLETED,
     )
 
+    print(
+        f"[Relay] Forwarding tasks done for session {(client_id, session_id)}. Cancelling pending."
+    )
     for task in pending:
         task.cancel()
 
@@ -83,25 +98,34 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
 @app.websocket("/ws/ssh/{client_id}/{session_id}")
 async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
     await websocket.accept()
-    print(f"[Relay] SSH connected: {client_id}, session: {session_id}")
+    print(f"[Relay] SSH WS connected: {client_id}, session: {session_id}")
 
     while True:
         old = sessions.get((client_id, session_id))
         if old is None:
             sessions[(client_id, session_id)] = (None, websocket)
+            print(
+                f"[Relay] Session created for {(client_id, session_id)} with SSH WS only"
+            )
         else:
             client_ws, ssh_ws = old
             if client_ws is not None:
                 sessions[(client_id, session_id)] = (client_ws, websocket)
+                print(
+                    f"[Relay] Client WS present, session ready: {(client_id, session_id)}"
+                )
                 break
             else:
                 sessions[(client_id, session_id)] = (None, websocket)
+                print(
+                    f"[Relay] Waiting for Client WS for session {(client_id, session_id)}"
+                )
         await asyncio.sleep(0.1)
 
     client_ws = sessions[(client_id, session_id)][0]
 
     try:
-        await asyncio.Future()
+        await asyncio.Future()  # keep open until disconnect
     except asyncio.CancelledError:
         pass
     finally:
