@@ -44,8 +44,8 @@ async def ws_to_tcp(tcp_writer, ws):
 async def run_session():
     parsed = urlparse(domain)
     scheme = "wss" if parsed.scheme == "https" else "ws"
-    domain = parsed.netloc
-    VPS_URL = f"{scheme}://{domain}/ws/client/{clientId}/{session_id}"
+    netloc = parsed.netloc or parsed.path
+    VPS_URL = f"{scheme}://{netloc}/ws/client/{clientId}/{session_id}"
     async with websockets.connect(VPS_URL) as ws:
         reader, writer = await asyncio.open_connection(LOCAL_SSH_HOST, LOCAL_SSH_PORT)
         print("[Client A] Connected to VPS and local SSH")
