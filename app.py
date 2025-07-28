@@ -3,8 +3,14 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 from typing import Dict, Tuple
 from starlette.websockets import WebSocketState
+import os
+from dotenv import load_dotenv
 
 app = FastAPI()
+
+load_dotenv()
+
+token = os.getenv("TOKEN")
 
 sessions: Dict[Tuple[str, str], Tuple[WebSocket, WebSocket]] = {}
 
@@ -68,6 +74,12 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
 @app.websocket("/ws/ssh/{client_id}/{session_id}")
 async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
     await websocket.accept()
+    query_params = websocket.query_params
+    _token = query_params.get("token")
+    if _token != token:
+        await websocket.close(code=1008)
+        return
+
     print(f"[Relay] SSH WS connected: {client_id}, session: {session_id}")
     key = (client_id, session_id)
     sessions[key] = (sessions.get(key, (None, None))[0], websocket)

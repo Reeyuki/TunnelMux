@@ -1,16 +1,18 @@
 import asyncio
 from urllib.parse import urlparse
 from dotenv import load_dotenv
-import websockets, os
+import websockets
+import os
 import ssl
 import certifi
 
 load_dotenv()
+
 domain = os.getenv("DOMAIN")
+token = os.getenv("TOKEN")
 
 clientId = "defaultclient"
 session_id = "default"
-
 LOCAL_FORWARD_HOST = "127.0.0.1"
 LOCAL_FORWARD_PORT = 2222
 
@@ -23,8 +25,8 @@ async def tcp_to_ws(tcp_reader, ws):
                 await ws.close()
                 break
             await ws.send(data)
-    except Exception as e:
-        print(f"[Client B] tcp_to_ws error: {e}")
+    except Exception:
+        pass
 
 
 async def ws_to_tcp(tcp_writer, ws):
@@ -32,10 +34,8 @@ async def ws_to_tcp(tcp_writer, ws):
         async for message in ws:
             tcp_writer.write(message)
             await tcp_writer.drain()
-    except websockets.exceptions.ConnectionClosedOK:
+    except Exception:
         pass
-    except Exception as e:
-        print(f"[Client B] ws_to_tcp error: {e}")
     finally:
         tcp_writer.close()
         await tcp_writer.wait_closed()
@@ -54,7 +54,7 @@ async def handle_connection(local_reader, local_writer):
         scheme = "ws"
         netloc = domain
 
-    VPS_URL = f"{scheme}://{netloc}/ws/client/{clientId}/{session_id}"
+    VPS_URL = f"{scheme}://{netloc}/ws/client/{clientId}/{session_id}?token={token}"
 
     try:
         ssl_context = ssl.create_default_context(cafile=certifi.where())
