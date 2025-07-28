@@ -2,3 +2,4 @@ fastapi
 starlette
 websockets
 dotenv
+gunicorn
