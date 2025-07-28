@@ -14,13 +14,16 @@ session_id = "default"
 LOCAL_SSH_HOST = "127.0.0.1"
 LOCAL_SSH_PORT = 22
 
+
 def build_ws_url(path):
     parsed = urlparse(domain)
     scheme = "wss" if parsed.scheme == "https" else "ws"
     netloc = parsed.netloc if parsed.netloc else parsed.path
     return f"{scheme}://{netloc}{path}"
 
+
 ssl_context = ssl.create_default_context(cafile=certifi.where())
+
 
 async def remote_agent_main():
     url = build_ws_url(f"/ws/ssh/{clientId}/{session_id}")
@@ -33,6 +36,7 @@ async def remote_agent_main():
             ws_to_tcp(writer, ws),
         )
 
+
 async def tcp_to_ws(reader, ws):
     try:
         while True:
@@ -44,6 +48,7 @@ async def tcp_to_ws(reader, ws):
             await ws.send(data)
     except Exception as e:
         print(f"[Client A] tcp_to_ws error: {e}")
+
 
 async def ws_to_tcp(writer, ws):
     try:
@@ -58,6 +63,7 @@ async def ws_to_tcp(writer, ws):
         writer.close()
         await writer.wait_closed()
 
+
 async def main_loop():
     while True:
         try:
@@ -66,6 +72,7 @@ async def main_loop():
             print(f"[Client A] Connection/session error: {e}")
         print("[Client A] Session ended, reconnecting...")
         await asyncio.sleep(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main_loop())

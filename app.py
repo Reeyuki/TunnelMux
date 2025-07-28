@@ -22,6 +22,7 @@ async def safe_ws_close(ws: WebSocket):
     except Exception as e:
         print(f"[Relay] Error closing websocket: {e}")
 
+
 async def forward(src: WebSocket, dst: WebSocket):
     try:
         while True:
@@ -32,6 +33,7 @@ async def forward(src: WebSocket, dst: WebSocket):
             await dst.send_bytes(data)
     except Exception as e:
         print(f"[Relay] Forward error: {e}")
+
 
 @app.websocket("/ws/client/{client_id}/{session_id}")
 async def websocket_client(websocket: WebSocket, client_id: str, session_id: str):
@@ -61,6 +63,7 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
     await safe_ws_close(ssh_ws)
     sessions.pop(key, None)
     print(f"[Relay] Session closed: {client_id}, {session_id}")
+
 
 @app.websocket("/ws/ssh/{client_id}/{session_id}")
 async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
