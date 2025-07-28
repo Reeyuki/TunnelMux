@@ -57,7 +57,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .\venv\Scripts\activate
-          pyinstaller --onefile remoteagent.py
+          pyinstaller --onefile -noconsole remoteagent.py
 
       - name: Rename binary for OS
         run: |
