@@ -50,30 +50,34 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
     await websocket.accept()
     print(f"[Relay] Client WS connected: {client_id}, session: {session_id}")
 
+    key = (client_id, session_id)
     while True:
-        old = sessions.get((client_id, session_id))
+        old = sessions.get(key)
         if old is None:
-            sessions[(client_id, session_id)] = (websocket, None)
-            print(
-                f"[Relay] Session created for {(client_id, session_id)} with client WS only"
-            )
+            sessions[key] = (websocket, None)
+            print(f"[Relay] Session created for {key} with client WS only")
+            break
         else:
             client_ws, ssh_ws = old
             if ssh_ws is not None:
-                sessions[(client_id, session_id)] = (websocket, ssh_ws)
-                print(
-                    f"[Relay] SSH WS present, session ready: {(client_id, session_id)}"
-                )
+                if client_ws != websocket:
+                    sessions[key] = (websocket, ssh_ws)
+                    print(f"[Relay] SSH WS present, session ready: {key}")
+                else:
+                    print(f"[Relay] Client WS already set for session: {key}")
                 break
             else:
-                sessions[(client_id, session_id)] = (websocket, None)
-                print(
-                    f"[Relay] Waiting for SSH WS for session {(client_id, session_id)}"
-                )
-        await asyncio.sleep(0.1)
+                if client_ws != websocket:
+                    sessions[key] = (websocket, None)
+                    print(
+                        f"[Relay] Waiting for SSH WS for session {key} - updated client WS"
+                    )
+                else:
+                    print(f"[Relay] Waiting for SSH WS for session {key}")
+                await asyncio.sleep(0.1)
 
-    ssh_ws = sessions[(client_id, session_id)][1]
-    print(f"[Relay] Starting forwarding tasks for session {(client_id, session_id)}")
+    ssh_ws = sessions[key][1]
+    print(f"[Relay] Starting forwarding tasks for session {key}")
 
     forward_client = asyncio.create_task(forward(websocket, ssh_ws))
     forward_ssh = asyncio.create_task(forward(ssh_ws, websocket))
@@ -83,15 +87,13 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
         return_when=asyncio.FIRST_COMPLETED,
     )
 
-    print(
-        f"[Relay] Forwarding tasks done for session {(client_id, session_id)}. Cancelling pending."
-    )
+    print(f"[Relay] Forwarding tasks done for session {key}. Cancelling pending.")
     for task in pending:
         task.cancel()
 
     await safe_ws_close(websocket)
     await safe_ws_close(ssh_ws)
-    sessions.pop((client_id, session_id), None)
+    sessions.pop(key, None)
     print(f"[Relay] Session closed: {client_id}, {session_id}")
 
 
@@ -100,37 +102,41 @@ async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
     await websocket.accept()
     print(f"[Relay] SSH WS connected: {client_id}, session: {session_id}")
 
+    key = (client_id, session_id)
     while True:
-        old = sessions.get((client_id, session_id))
+        old = sessions.get(key)
         if old is None:
-            sessions[(client_id, session_id)] = (None, websocket)
-            print(
-                f"[Relay] Session created for {(client_id, session_id)} with SSH WS only"
-            )
+            sessions[key] = (None, websocket)
+            print(f"[Relay] Session created for {key} with SSH WS only")
+            break
         else:
             client_ws, ssh_ws = old
             if client_ws is not None:
-                sessions[(client_id, session_id)] = (client_ws, websocket)
-                print(
-                    f"[Relay] Client WS present, session ready: {(client_id, session_id)}"
-                )
+                if ssh_ws != websocket:
+                    sessions[key] = (client_ws, websocket)
+                    print(f"[Relay] Client WS present, session ready: {key}")
+                else:
+                    print(f"[Relay] SSH WS already set for session: {key}")
                 break
             else:
-                sessions[(client_id, session_id)] = (None, websocket)
-                print(
-                    f"[Relay] Waiting for Client WS for session {(client_id, session_id)}"
-                )
-        await asyncio.sleep(0.1)
+                if ssh_ws != websocket:
+                    sessions[key] = (client_ws, websocket)
+                    print(
+                        f"[Relay] Waiting for Client WS for session {key} - updated SSH WS"
+                    )
+                else:
+                    print(f"[Relay] Waiting for Client WS for session {key}")
+                await asyncio.sleep(0.1)
 
-    client_ws = sessions[(client_id, session_id)][0]
+    client_ws = sessions[key][0]
 
     try:
-        await asyncio.Future()  # keep open until disconnect
+        await asyncio.Future()
     except asyncio.CancelledError:
         pass
     finally:
-        if (client_id, session_id) in sessions:
-            client_ws, ssh_ws = sessions.pop((client_id, session_id))
+        if key in sessions:
+            client_ws, ssh_ws = sessions.pop(key)
             if client_ws:
                 await safe_ws_close(client_ws)
             if ssh_ws:
