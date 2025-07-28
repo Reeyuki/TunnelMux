@@ -43,7 +43,14 @@ async def forward(src: WebSocket, dst: WebSocket):
 
 @app.websocket("/ws/client/{client_id}/{session_id}")
 async def websocket_client(websocket: WebSocket, client_id: str, session_id: str):
+    query_params = websocket.query_params
+    _token = query_params.get("token")
+    if _token != token:
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
+
     print(f"[Relay] Client WS connected: {client_id}, session: {session_id}")
     key = (client_id, session_id)
     sessions[key] = (websocket, sessions.get(key, (None, None))[1])
@@ -74,11 +81,6 @@ async def websocket_client(websocket: WebSocket, client_id: str, session_id: str
 @app.websocket("/ws/ssh/{client_id}/{session_id}")
 async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
     await websocket.accept()
-    query_params = websocket.query_params
-    _token = query_params.get("token")
-    if _token != token:
-        await websocket.close(code=1008)
-        return
 
     print(f"[Relay] SSH WS connected: {client_id}, session: {session_id}")
     key = (client_id, session_id)
