@@ -2,8 +2,6 @@ name: Build and Release Python Binary
 
 on:
   push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -88,8 +86,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binary-${{ runner.os }}
-          path: release-${{ runner.os }}.zip
+          name: binary-${{ matrix.os }}
+          path: release-${{ matrix.os }}.zip
 
   release:
     name: Create GitHub Release
