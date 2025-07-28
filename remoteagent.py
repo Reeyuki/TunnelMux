@@ -22,26 +22,21 @@ def build_ws_url(path):
 
 ssl_context = ssl.create_default_context(cafile=certifi.where())
 
-async def ssh_ws_loop():
+async def remote_agent_main():
     url = build_ws_url(f"/ws/ssh/{clientId}/{session_id}")
     async with websockets.connect(url, ssl=ssl_context) as ws:
-        print("[Client A] SSH WebSocket connected (waiting for relay connection)")
-        await asyncio.Future()
-
-async def client_session_loop():
-    url = build_ws_url(f"/ws/client/{clientId}/{session_id}")
-    async with websockets.connect(url, ssl=ssl_context) as ws:
         reader, writer = await asyncio.open_connection(LOCAL_SSH_HOST, LOCAL_SSH_PORT)
-        print("[Client A] Connected to VPS and local SSH")
+        print("[Client A] Connected to local SSH and relay")
+
         await asyncio.gather(
             tcp_to_ws(reader, ws),
             ws_to_tcp(writer, ws),
         )
 
-async def tcp_to_ws(tcp_reader, ws):
+async def tcp_to_ws(reader, ws):
     try:
         while True:
-            data = await tcp_reader.read(1024)
+            data = await reader.read(1024)
             if not data:
                 print("[Client A] Local SSH connection closed")
                 await ws.close()
@@ -50,29 +45,27 @@ async def tcp_to_ws(tcp_reader, ws):
     except Exception as e:
         print(f"[Client A] tcp_to_ws error: {e}")
 
-async def ws_to_tcp(tcp_writer, ws):
+async def ws_to_tcp(writer, ws):
     try:
         async for message in ws:
-            tcp_writer.write(message)
-            await tcp_writer.drain()
+            writer.write(message)
+            await writer.drain()
     except websockets.exceptions.ConnectionClosedOK:
-        print("[Client A] WebSocket closed by server")
+        print("[Client A] WebSocket closed")
     except Exception as e:
         print(f"[Client A] ws_to_tcp error: {e}")
     finally:
-        tcp_writer.close()
-        await tcp_writer.wait_closed()
+        writer.close()
+        await writer.wait_closed()
 
 async def main_loop():
     while True:
         try:
-            ssh_task = asyncio.create_task(ssh_ws_loop())
-            client_task = asyncio.create_task(client_session_loop())
-            await asyncio.gather(ssh_task, client_task)
+            await remote_agent_main()
         except Exception as e:
             print(f"[Client A] Connection/session error: {e}")
-        print("[Client A] Session ended, reconnecting ...")
-        await asyncio.sleep(0.5)
+        print("[Client A] Session ended, reconnecting...")
+        await asyncio.sleep(1)
 
 if __name__ == "__main__":
     asyncio.run(main_loop())
