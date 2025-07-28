@@ -7,12 +7,13 @@ import ssl
 import certifi
 
 load_dotenv()
-domain = os.getenv("DOMAIN")
 
-clientId = "defaultclient"
-session_id = "default"
+domain = os.getenv("DOMAIN")
+clientId = os.getenv("CLIENT_ID", "defaultclient")
+session_id = os.getenv("SESSION_ID", "default")
+LOCAL_SSH_PORT = int(os.getenv("SSH_PORT", "22"))
+
 LOCAL_SSH_HOST = "127.0.0.1"
-LOCAL_SSH_PORT = 22
 
 
 def build_ws_url(path):
