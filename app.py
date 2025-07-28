@@ -79,11 +79,14 @@ async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
     await websocket.accept()
     print(f"[Relay] SSH connected: {client_id}, session: {session_id}")
 
-    if (client_id, session_id) in sessions:
-        client_ws, _ = sessions[(client_id, session_id)]
-        sessions[(client_id, session_id)] = (client_ws, websocket)
-    else:
+    while (client_id, session_id) not in sessions or sessions[(client_id, session_id)][
+        0
+    ] is None:
         sessions[(client_id, session_id)] = (None, websocket)
+        await asyncio.sleep(0.1)
+
+    client_ws = sessions[(client_id, session_id)][0]
+    sessions[(client_id, session_id)] = (client_ws, websocket)
 
     try:
         await asyncio.Future()
