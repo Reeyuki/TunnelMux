@@ -86,8 +86,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: binary-${{ matrix.os }}
-          path: release-${{ matrix.os }}.zip
+          name: binary-${{ runner.os }}
+          path: release-${{ runner.os }}.zip
 
   release:
     name: Create GitHub Release
