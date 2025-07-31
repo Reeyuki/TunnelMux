@@ -12,9 +12,9 @@ domain = os.getenv("DOMAIN")
 token = os.getenv("TOKEN")
 
 clientId = "defaultclient"
-session_id = "default"
+session_id = os.getenv("SESSION_ID", "default")
+LOCAL_FORWARD_PORT = int(os.getenv("SSH_PORT", "22"))
 LOCAL_FORWARD_HOST = "127.0.0.1"
-LOCAL_FORWARD_PORT = 2222
 
 
 async def tcp_to_ws(tcp_reader, ws):

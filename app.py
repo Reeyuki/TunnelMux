@@ -3,7 +3,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 from typing import Dict, Tuple
 from starlette.websockets import WebSocketState
-import os
+import os, time
 from dotenv import load_dotenv
 
 app = FastAPI()
@@ -90,7 +90,15 @@ async def websocket_ssh(websocket: WebSocket, client_id: str, session_id: str):
         await asyncio.sleep(0.1)
 
     try:
-        await asyncio.Future()
+        timeout = 300
+        start_time = time.time()
+        while True:
+            if websocket.application_state != WebSocketState.CONNECTED:
+                break
+            if time.time() - start_time > timeout:
+                print(f"[Relay] SSH WS timeout reached, closing: {key}")
+                break
+            await asyncio.sleep(1)
     except asyncio.CancelledError:
         pass
     finally:
